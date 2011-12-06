@@ -1,0 +1,53 @@
+% Intentando sacar una fase media...
+% Se va a ver por bloques si se puede disminuir la varianza de la fase
+
+function [Is mantenidos ImPhi] = OutliersRejection(CarpetaIn)
+
+% Se toma una lista de los archivos de entrada
+if CarpetaIn(end) ~= '\'
+   CarpetaIn(end+1) = '\';
+end
+archivos = dir([CarpetaIn '*.txt']);
+
+% Se abren todas las imágenes de fases y se mira la evolución de la fase.
+% En teoría, los que estén fuera de un rango, están feos
+
+
+% Se abre el primero de los archivos para tomarlo de referencia
+ImRef = abrirFase([CarpetaIn archivos(1).name],'fase');
+
+% Se inicializa la matriz que indica los corrimientos que deberán
+% realizarse para promediar los valores de las fases
+movs = zeros(length(archivos),2);
+
+Is = ImRef;
+ImsSumadas = 1;
+for IndIm = 2:length(archivos)
+    A = abrirFase([CarpetaIn archivos(IndIm).name],'fase');
+    diferencias = npi2pi(A-ImRef);
+    difMedia = angle(mean(exp(1i*diferencias(:)*pi/180)))*180/pi;
+    A = npi2pi(A - difMedia);
+    Is(:,:,IndIm) = A;
+end
+
+difIs = npi2pi(Is(:,:,1:end-1) - Is(:,:,2:end));
+for k = 1:size(difIs,3)
+    a = difIs(:,:,k);
+    vars(k) = var(exp(1i*a(:)*pi/180));
+end
+
+mantenidosLogico = abs(vars - mean(vars)) > 3*std(vars);
+mantenidos = 1;
+cnt_m = 2;
+for k = 1:length(vars)
+    if ~mantenidosLogico(k)
+        mantenidos(cnt_m) = k+1;
+        cnt_m = cnt_m + 1;
+    end
+end
+
+Is = Is(:,:,mantenidos);
+
+% Para sacar la fase media
+expIs = exp(1i*Is*pi/180);
+ImPhi = angle(mean(expIs,3))*180/pi;

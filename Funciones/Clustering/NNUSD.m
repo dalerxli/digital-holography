@@ -1,0 +1,83 @@
+% 
+% A feature extraction unsupervised neural network for an environmental
+% data set.
+% Neural Network of Units Sensitive to Data Density
+% 
+% N: cantidad de neuronas
+% X: muestras columna
+
+function [I,W,sigmas] = NNUSD(X,N,epocas)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Constantes
+% sigm: compresión de la función sigmoidea (Logistic)
+sigm = 2;
+% sigmac: umbral
+sigmac = 0.001;
+% beta1: factor lineal de la función que genera el factor local de update
+beta1 = 0.01;
+% taualpha: tau con que cae alpha en pasos
+taualpha = 10000;
+
+% M: Dimension de vectores de entrada y D: Cantidad de vectores de entrada
+[M D] = size(X);
+factoralpha = exp(-1/taualpha);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Inicialización de:
+% pesos sinápticos
+in = randperm(D);
+W = X(:,in(1:N));
+% umbrales de distancia
+sigma0 = 0.01;
+sigmas = sigma0 * ones(1,N);
+% factor de aprendizaje
+alpha = 0.1;
+% salida
+I = zeros(1,D);
+% Cosas en cero
+phi = zeros(1,N);
+inhib_links = zeros(1,N-1);
+inhib = zeros(1,N);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Aprendizaje
+
+paso = 1;
+while paso < epocas*D
+   
+    % Se toma una muestra al azar k
+    k = ceil(rand * D);
+    x = X(:,k);
+    
+    % Se calculan las distancias
+    resta = W - repmat(x,[1 N]);
+    dist = sqrt(sum(resta.^2));
+    
+    % Se calculan las salidas de la red
+    DeltaDist = sigmas - dist;
+    y = 1./(1 + exp(- sigm * DeltaDist));
+    
+    % Adjudicaciones
+    [c I(k)] = max(y);
+    
+    % Factores de update locales
+    phi = 1 - beta1 * (1 - y);
+    
+    % Cálculo de inhibiciones
+    inhib_links = double(sigmas(1:end-1) < sigmac);
+    inhib = [1 cumprod(inhib_links)];
+    
+    % Se calculan las actualizaciones
+    DeltaW = alpha * repmat(phi .* inhib, [M,1]) .* resta;
+    W = W - DeltaW;
+    
+    % Actualización de vecindarios (sigmas)
+    DeltaSigmas = -alpha * phi .* DeltaDist;
+    sigmas = sigmas + DeltaSigmas;
+    
+    % Actualización de alpha
+    alpha = alpha * factoralpha;
+    
+    paso = paso + 1;
+    
+end

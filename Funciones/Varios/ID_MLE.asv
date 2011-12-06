@@ -1,0 +1,57 @@
+% m = ID_MLE(X,ks,N)
+%
+% Esta función calcula la dimension intrinseca m del set de muestras X que
+% contiene en cada columna un vector de dimension p, se espera encontrar un
+% m < p. k1 y k2 son parámetros del método para el cálculo de ID, conviene
+% tomar valores separados para más precisión. Si se eligen muy altos la
+% estimación de m tendrá un sesgo negativo, si se eligen muy bajos la
+% estimación no será buena. Si se incrementa k2 y la estimación baja mucho
+% entonces habría que incrementar ambos. N contiene la cantidad de puntos
+% de cálculo, deberá ser menor o igual a la cantidad de muestras en X.
+
+function m = ID_MLE(X,kes,N)
+
+% Maximum Likelihood Estimation of Intrinsic Dimension
+kes = ceil(kes);
+k = 1;
+while k <= length(kes)-1
+    distintos = find(kes(k+1:end)~=kes(k));
+    kes = [kes(1:k) kes(distintos+k)];
+    k = k + 1;
+end
+    
+ks = length(kes);
+if kes(end) > size(X,2)
+    disp('kes no contiene enteros válidos.')
+    return
+end
+mk = zeros(ks,1);
+
+randsamples = randperm(size(X,2));
+Nsamples = randsamples(1:N);
+
+h = waitbar(0,'Calculando...');
+% Para distintas muestras...
+for i_sample = Nsamples
+    % Distancias desde x(i) al resto de los puntos ordenadas para sacar
+    % el NN.
+    distancias = sort(dist(X',X(:,i_sample)),'ascend');
+    % Para distintas cantidades de vecinos cercanos...
+    % Se hace una MLE de m a partir de las distancias del kj vecino más
+    % cercano, para 1<kj<k-1
+    sumLTj = log10(distancias(2));
+    for kj = 2:kes(end)
+        LTj = log10(distancias(kj+1));
+        k = find(kes==kj);
+        if ~isempty(k)
+            % Se acumula para cada muestra
+            mk(k) = mk(k) + (kj-2)/((kj-1)*LTj-sumLTj); % El -2 lo hace insesgado
+        end
+        sumLTj = sumLTj + LTj;
+    end
+    waitbar(i_sample/N)
+end
+mk = mk / N;
+figure, plot(kes(:),mk(:))
+% Promedio de las estimaciones con distintos k
+m = sum(mk) / length(mk);

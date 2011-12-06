@@ -1,0 +1,25 @@
+function SegmIM(IM,cl)
+
+close all
+v = IM(:);
+
+[n xout] = hist(v,500);
+
+N = length(v);
+
+idx = kmeans(v,cl);
+
+figure, bar(xout,n);
+hold on;
+
+for i = 1:cl
+    medias(i) = mean(v(idx==i));
+    vars(i) = var(v(idx==i));
+    priori(i) = sum(idx==i) / N;
+    g(i,1:500) = priori(i)*N * exp(-(xout-medias(i)).^2/2/vars(i));
+    plot(xout,g(i,:),'linewidth',2)
+    IM(idx==i) = medias(i);
+end
+figure
+imagesc(IM)
+colormap('hot')

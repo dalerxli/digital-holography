@@ -1,0 +1,92 @@
+% Funci�n que realiza un clustering de Ejs
+function [imagenclus C ClustersFin X cv_est Calidad] = ClusteringFiltFull(Ejs,tamQuad,Clusters,plotear,metodo)
+
+if size(Ejs,4) > 1
+    Ejs = permute(Ejs,[1 2 4 3]);
+end
+s_Ejs = size(Ejs);
+if length(s_Ejs)==3
+    s_Ejs(4) = 1;
+end
+ClustersFin = Clusters;
+% Filtro 2D
+% [Lo_D Hi_D Lo_R Hi_R] = wfilters(['db' num2str(ceil(tamQuad/2-1))]);
+X = AVectorFiltFull(Ejs,tamQuad,'@chebwin');
+
+% dimF = tamQuad^2*n_esc; % Para el caso en que no quiera promediar los
+% valores de Ej de los pixeles del cuadradito.
+dimF = s_Ejs(3);
+cantMuestras = s_Ejs(1)*s_Ejs(2);
+
+% Clustering
+saltosClus = ceil(s_Ejs(1)/25); % 5% para el primer clustering.
+idx = zeros(cantMuestras, s_Ejs(4));
+for k_bloque = 1:s_Ejs(4)
+
+    %%% K-Means
+    if metodo == 0
+        % Primer clustering con menos muestras, se usa s�lo el C que resulta
+        [aux C] = kmeans(X(1:saltosClus:end,:,k_bloque),Clusters,'distance','city','replicates',30);
+        % Segundo clustering con todas las muestras para hacer la
+        % clasificaci�n en todos los cuadraditos.
+        [idx(:,k_bloque) C] = kmeans(X(:,:,k_bloque),Clusters,'distance','city','start',repmat(C,[1 1 10]),'emptyaction','singleton');
+    elseif metodo == 1
+        %%% Fuzzy C-Means
+
+        [C, U, obj_fcn] = fcm(X(:,:,k_bloque),Clusters,[2 100 1e-5 0]);
+        [pert idx(:,k_bloque)] = max(U);
+        
+    elseif metodo == 2
+        % Primer clustering con menos muestras, se usa s�lo el C que resulta
+        [aux C] = kmeans(X(1:saltosClus:end,:,k_bloque),Clusters,'distance','city','replicates',20);
+        %%% Algoritmo EM
+        [idx(:,k_bloque) cv_est C a_est logL] = EMAlgorithm(X',Clusters,300,C');
+        C = C';
+        
+    elseif metodo == 3
+        % Primer clustering con menos muestras, se usa s�lo el C que resulta
+        [aux C] = kmeans(X(1:saltosClus:end,:,k_bloque),Clusters(1),'distance','city','replicates',30);
+        %%% Algoritmo EM
+        [idx(:,k_bloque) cv_est C a_est logL] = MEMAlgorithm(X',Clusters(1),Clusters(2),30,C');
+        ClustersFin = length(a_est);
+        C = C';        
+    end
+    % Testeo del proceso de clustering.
+    Calidad = 0;
+    %     if nargout > 3
+    %         silh = silhouette(X(1:saltosClus:end,:,k_bloque),idx(1:saltosClus:end,k_bloque));
+    %         Calidad = mean(silh);
+    %     end
+end
+imagenclus = zeros(s_Ejs(1),s_Ejs(2));
+imagenclus(:) = idx(:,k_bloque);
+
+if (nargin > 3) && (plotear)
+    %     C_ord = C-repmat(min(C,[],2),1,dimF);
+    %     C_ord = C_ord./repmat(sum(C_ord,2),1,dimF);
+    %     for k_cluster = 1:Clusters
+    %         mayoresQcero = C_ord(k_cluster,find(C_ord(k_cluster,:)>0));
+    %         fC(k_cluster) = -sum(mayoresQcero.*log2(mayoresQcero),2);
+    %     end
+
+    % % Esto funciona si se entra con algo a lo que se le sac� el log10
+    %     C_ord = 10.^C;
+    %     C_ord = C_ord ./ repmat(sum(C_ord,2),1,dimF);
+    %     fC = -sum(C_ord.*log2(C_ord),2);
+
+    % Se multiplica por -1 a los n�meros negativos de energ�a relativa en dBs y
+    % luego se escala para que sumen 1 para poder calcular la entrop�a
+    C_ord = -C;
+    C_ord = C_ord./repmat(sum(C_ord,2),1,dimF);
+    for k_cluster = 1:ClustersFin
+        mayoresQcero = C_ord(k_cluster,find(C_ord(k_cluster,:)>0));
+        fC(k_cluster) = -sum(mayoresQcero.*log2(mayoresQcero),2);
+    end
+
+    imagenclus=fC(imagenclus);
+    figure;
+    imagesc(imagenclus);
+    title('Resultado del clustering.')
+    figure;
+    plot(C')
+end

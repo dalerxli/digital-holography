@@ -1,0 +1,27 @@
+% Funcion para obtener el thsp de una columna de un set de im�genes de
+% speckle. La imagen de la que se extraen los datos fue creada con 
+%
+%   carpeta = carpeta de la que se obtienen las imagenes
+%   resol = resolucion de las imagenes, en realidad importa la cantidad de
+%           filas
+%   imagenes = cantidad de columnas que termina teniendo la matriz
+%              recuperada
+%   numcol = numero de la columna a recuperar de la imagen de speckle
+
+function thsp = obtener_columna(carpeta, resol, imagenes, numcol, tipo)
+
+% nombre_arch = [carpeta '\columna0000'];
+nombre_arch = [carpeta '/columna0000'];
+numero = num2str(numcol);
+nombre_arch(( end - length(numero)+1 ):end) = numero;
+nombre_arch = [nombre_arch '.dat'];
+fid = fopen(nombre_arch,'r');
+thsp = fread(fid,[resol(1) imagenes],tipo); % 'uchar' para sin normalizar, 'float32' para normalizado
+fclose(fid);
+
+nans = isnan(thsp);
+while ~isempty(nans)
+
+    thsp(nans) = thsp(nans+1);
+    nans = isnan(thsp);
+end

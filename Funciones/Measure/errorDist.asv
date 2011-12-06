@@ -1,0 +1,27 @@
+% d = errorDist(Abeizado,B)
+%
+% Función que encuentra los errores entre A y B y calcula las distancias de
+% los errores a las posiciones en B que sí toman los valores de A.
+
+function d = errorDist(A,B)
+% Se detectan las posiciones de los errores
+[Ferr Cerr] = find(A~=B);
+% Se inicializa la salida de distancias
+d = zeros(length(Ferr),1);
+% Cálculo de máscara auxiliar
+s_B = size(B);
+Mask = zeros(s_B*2-1);
+[X,Y] = meshgrid(1:size(Mask,1));
+X = X - X(s_B);
+Y = Y - Y(s_B);
+Mask = X.^2+Y.^2;
+% Se inicializa la matriz de distancias
+distancias = zeros(s_B);
+for k = 1:length(Ferr)
+    % Se aplica la máscara debidamente shifteada en la matriz de
+    % coincidencia de B
+    distancias = Mask((s_B(1)-Ferr(k)+1):(2*s_B(1)-Ferr(k)),...
+        (s_B(2)-Cerr(k)+1):(2*s_B(2)-Cerr(k))) .* (B == A(Ferr(k),Cerr(k));
+    d(k) = min(distancias(:));
+end
+    

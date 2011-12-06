@@ -1,0 +1,19 @@
+function ImAp = apodizer(I)
+
+d = 1/6;
+sI = size(I);
+vF = zeros(length(sI(1)),1);
+vC = zeros(length(sI(2)),1);
+
+% Armando vF
+lF = floor(sI(1)*d);
+vF(1:lF) = sin(((1:lF)-1)/(lF-1)*pi-pi/2);
+vF(end-lF+1:end) = vF(lF:-1:1);
+
+% Armando vC
+lC = floor(sI(2)*d);
+vC(1:lC) = sin(((1:lC)-1)/(lC-1)*pi-pi/2);
+vC(end-lC+1:end) = vC(lC:-1:1);
+
+% Armando la máscara 2D
+mask = 

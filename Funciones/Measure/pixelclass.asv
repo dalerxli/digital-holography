@@ -1,0 +1,18 @@
+% C = pixelclass(A,B)
+%
+% Cij contiene la cantidad de pixels de la clase j en B que fueron
+% clasificados como clase i en A
+
+function C = pixelclass(A,B)
+
+% Valores de A y B
+Bval(1) = min(B(:));
+Bval(2) = max(B(:));
+numVal = Bval(2)-Bval(1)+1;
+C = zeros();
+
+for i = 1:numVal
+    for j = 1:numVal
+        C(i,j) = sum(A(B==j)==i);
+    end
+end

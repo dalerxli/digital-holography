@@ -1,0 +1,46 @@
+% Iout = AFESPI(I1,I2)
+% Amplitud fluctuation electronic speckle pattern interferometry
+% Función que encuentra la amplitud de vibración out of plane cuando se
+% ilumina con laser una muestra y se adquieren dos imágenes con integración
+% temporal de la composición del haz dispersado por la muestra (haz A) y el
+% proveniente de un plano de referencia (haz B).
+% La muestra debe estar vibrando siempre.
+
+function Iout = AFESPI(I1,I2)
+
+% El análisis de I1 permite obtener la amplitud de variaciones. Se
+% considera que se sumple:
+% I1 = IA + IB + 2 sqrt(IA IB) abs(cos(phi) J0(Gamma A))
+%
+% Gamma = 2 pi / lambda (1+ cos(theta))
+% theta : ángulo entre el haz A y la dirección de observación
+% A: amplitud de vibración
+% phi: fase inicial
+% J0 es la función de Bessel de orden 0
+lambda = 680e-9;
+theta = 0;
+
+% En los mínimos de I1 se va a tener una raíz de J0.
+% Raíces de J0
+J0r = [2.40482555769577;
+    5.52007811028631;
+    8.65372791291101;
+    11.7915344390142;
+    14.9309177084877];
+% Esto permite ver que los valores posibles que puede tomar A en 
+Ai = lambda * J0r / (2*pi*(1+cos(theta)));
+
+% Resta
+Iout = I1 - I2;
+
+% Pasa altos
+NroOrden = 6;
+Polo = 0.5;
+b = fir1(NroOrden,Polo,'high');
+h = ftrans2(b); 
+Iout = filter2(Iout,h);
+
+% Rectificación
+Iout = abs(Iout);
+
+% En este punto 

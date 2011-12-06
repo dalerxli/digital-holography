@@ -1,0 +1,93 @@
+% Reconstrucción estándar
+% TODAVÍA NO ANDA
+
+function [Fase Amplitud] = reconstruccion(archivo,z,filtro,ks)
+
+% Se lee el holograma
+H = imread(archivo);
+H = double(H);
+[M N] = size(H);
+
+%%% DATOS DEL DHM
+% Longitud de onda del laser
+lambda = 682.5e-9;
+
+% Parte del haz de referencia que da en ángulo con la cámara
+if nargin < 4
+    kx = 9e-3;
+    ky = 1e-3;
+else
+    kx = ks(1);
+    ky = ks(2);
+end
+% Distancia a la imagen
+if nargin < 2
+    z = 30e-2;
+else
+    z = z*1e-2; % Esto es para que lo que entre vaya en centímetros
+end
+% Longitud de la cámara
+L = 5e-3;
+% Tamaño de los pixeles
+dx = L / N; % En el plano de la cámara
+dy = L / M;
+de = lambda * z / L; % En el plano de la muestra
+dn = lambda * z / L;
+
+%%% ALGORITMO
+
+if rem(M,2)
+    vecM = -(M+1)/2:(M-1)/2;
+else
+    vecM = -M/2:M/2-1;
+end
+if rem(N,2)
+    vecN = -(N+1)/2:(N-1)/2;
+else
+    vecN = -N/2:N/2-1;
+end
+
+% FFT del holograma con la modulante
+FH = fftshift(fft2(H));
+
+if nargin < 3
+    % Se dibuja el espectro del holograma
+    imagesc(log10(abs(FH)))
+    
+    % Se busca conservar la imagen real
+    centro(1) = input('Pixel central de la porción conservada: x: ');
+    centro(2) = input('y: ');
+    diametro = input('Diámetro de la porción conservada: ');
+else
+    centro = filtro(1:2);
+    diametro = filtro(3);
+end
+
+% Se arma el círculo alrededor del centro
+[X Y] = meshgrid((1:N)-centro(1),(1:M)-centro(2));
+maskFFT = sqrt(X.^2 + Y.^2);
+maskFFT = maskFFT < diametro;
+
+% Se aplica el filtro
+FHfilt = FH .* maskFFT;
+Hfilt = ifft2(fftshift(FHfilt));
+
+% Referencia digital
+[X Y] = meshgrid(vecN,vecM);
+X2 = X.^2;
+Y2 = Y.^2;
+Rd = exp(1i*2*pi/lambda*(kx*X*dx+ky*Y*dy));
+
+% Kernels
+kernel1 = exp(1i*pi/lambda/z*(X2*dx^2+Y2*dy^2));
+kernel2 = exp(1i*pi/lambda/z*(X2*de^2+Y2*dn^2));
+
+% Constante
+A = exp(1i*2*pi*z/lambda) / (1i*lambda*z);
+
+% Integral de Fresnel
+Psi = A * kernel2 .* fftshift(fft2(Rd.*Hfilt.*kernel1));
+
+Fase = angle(Psi);
+
+Amplitud = abs(Psi);

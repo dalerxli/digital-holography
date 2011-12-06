@@ -1,0 +1,18 @@
+function IMts = IMt(THSP,V,dimt)
+% Función que encuentra la evolución del momento de inercia en un conjunto
+% de THSPs.
+% IMts = Imt(THSP,V)
+% THSP: cubo con THSPs, la tercera dimensión es el tiempo
+% V: tamaño de la ventana
+% dimt: dimensión temporal
+if nargin <
+
+Nsim = size(THSP,dimt);
+Cp = Nsim-V;
+IMts = zeros(1,Cp);
+colores = 256;
+com = zeros(colores);
+for k=1:Cp
+    com = norm_COM(THSP(:,:,k:k+V),colores);
+    IMts(k) = IM(com);
+end

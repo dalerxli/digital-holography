@@ -1,0 +1,202 @@
+% D = discrepancy(A,listA,B,metodo,Bval,cantidad)
+%
+% Funciï¿½n que obtiene una medida objetiva del error en la segmentaciï¿½n de
+% resultado A e imagen de referencia B.
+% El mï¿½todo puede ser:
+%   - pixel1: Valor medio de cantidad de pixels mal clasificados por valor
+%   posible de B;
+%   - pixel2: Valor medio de pixels clasificados como k y no son de clase k
+%   en B;
+%   - pos: Se tiene en cuenta tanto la cantidad de pixels mal clasificados
+%   como la distancia de estos a su clase correspondiente
+%   - divSim: Divergencia simï¿½trica con las posibilidades de pertencer a
+%   los distintos clusters entre la imagen segmentada y la de referencia.
+%   - entropy: se calcula una entropï¿½a de los valores de segmentaciï¿½n y se
+%   suma otra de las ï¿½reas de las secciones.
+%   - CoefCorr: btiene el valor absoluto del coeficiente de correlaciÃ³n
+%   entre la imagen A y la B.
+%   - PSNR: Se obtiene la peak signal to noise ratio de la imagen A tomando
+%   a B como referencia.
+%   - MAE: error medio.
+%   - EdgeQ: Se mide la calidad de preservaciÃ³n de bordes. Coeficiente de
+%   correlaciÃ³n del Laplaciano de las imÃ¡genes.
+
+function [D, VarOut] = discrepancy(A,listA,B,metodo,Bval,cantidad)
+
+VarOut = [];
+
+if not(isempty(listA))
+    % Se adapta la matriz A a B
+    Abeizado = AsociarSegm(A,listA,B,Bval,cantidad);
+end
+
+if strcmp(metodo,'pixel1')
+    
+    % Se arma la matriz C a partir de A y B
+    C = pixelclass(Abeizado,B,Bval);
+    % Cantidad de pixels en B por valor
+    TotalXColumna = sum(C);
+    % Porciï¿½n de pixels mal clasificados por valor de B
+    C = C - diag(diag(C));
+    D = sum(C) ./ TotalXColumna;
+    % Valor promedio de pixels errados por valor de B
+    D = mean(D);
+    
+elseif strcmp(metodo,'pixel2')
+
+    % Se arma la matriz C a partir de A y B
+    C = pixelclass(Abeizado,B,Bval);
+    % Cantidad de pixels en B por valor de B
+    TotalXColumna = sum(C);
+    % Cantidad de pixels en B que no son de un valor de B
+    NoSon = length(A(:)) - TotalXColumna;
+    % Porciï¿½n de pixels mal clasificados por valor de A
+    C = C - diag(diag(C));
+    D = sum(C,2) ./ NoSon';
+    % Valor promedio de pixels errados por valor de B
+    D = mean(D);
+
+elseif strcmp(metodo,'pos')    
+    
+    % Se calculan las distancias a la regiï¿½n de los errores
+    d2 = errorDist(Abeizado,B);
+    % Factor de escala
+    p = 1;
+    % Se calcula la figura de mï¿½rito
+    D = 1-sum(1./(1+p*d2))/length(A(:));
+    
+elseif strcmp(metodo,'divSim')
+    
+    histo1 = hist(Abeizado(:),Bval) / length(A(:));
+    histo2 = hist(B(:),Bval) / length(A(:));
+    D = sum((histo1-histo2).*log(histo1./histo2));
+    
+elseif strcmp(metodo,'entropy')
+    
+    % Cï¿½lculo de entropï¿½a por segmento
+    [HRj Sj] = EntropiaRegion(Abeizado,Bval,B);
+    % Cï¿½lculo de entropï¿½a promedio de regiones
+    SI = sum(Sj);
+    Hr = sum(Sj.*HRj)/SI;
+    % Entropï¿½a de areas de segmentos
+    Hl = -sum(Sj/SI.*log10(Sj/SI));
+    % Medida
+    D = Hr + Hl;
+    
+elseif strcmp(metodo,'CoefCorr')
+    
+    D = abs(corr2(A,B));
+    
+elseif strcmp(metodo,'PSNR')
+    
+    A = mat2gray(A);
+    % Primero se lleva a B a valores que tengan sentido ser comparados con
+    % los valores de A. Se aplica una funciÃ³n lineal a los valores de B
+    % para lograr el mejor ajuste.
+    [C error] = FitImageLS(A,B,1);
+    % CÃ¡lculo del PSNR
+    D = 20*log10(1 / sqrt(error));
+    
+elseif strcmp(metodo,'MAE')
+    
+    A = mat2gray(A);
+    C = FitImageLS(A,B,1);
+    D = sum(abs(A(:)-C(:))) / length(A(:));
+
+elseif strcmp(metodo,'Wang1')
+
+    A = mat2gray(A);
+    C = FitImageLS(A,B,1);
+    VarOut = zeros(3,1);
+%     [D,VarOut(1),VarOut(2),VarOut(3), quality_map] = img_qi(C, A, 8);
+    D = zeros(3,1);
+    [D(1), quality_map] = img_qi(C, A, 6);
+    [D(2), quality_map] = img_qi(C, A, 10);
+    [D(3), quality_map] = img_qi(C, A, 14);
+
+elseif strcmp(metodo,'Wang2')
+
+    A = mat2gray(A);
+    C = FitImageLS(A,B,1);
+    [D, ssim_map] = ssim_index(C, A);    
+    
+elseif strcmp(metodo,'Wang3')
+
+    A = mat2gray(A);
+    C = FitImageLS(A,B,1);
+    [D, ssim_map] = ssim(C, A,[0.01 0.05]);       
+    
+elseif strcmp(metodo,'EdgeQ')
+
+    A = mat2gray(A);
+    B = FitImageLS(A,B,1);
+    % Aplico el Laplaciano a las imÃ¡genes para realzar los bordes
+    Laplacian = [0 -1 0 ; -1 4 -1; 0 -1 0];
+    DeltaA = Filter2Mirror(Laplacian,A);
+    DeltaB = Filter2Mirror(Laplacian,B);
+    % Se mide la relaciÃ³n entre los bordes de las imÃ¡genes
+    D = corr2(DeltaA,DeltaB);
+    
+elseif strcmp(metodo,'EdgeQGrueso')
+    
+    A = mat2gray(A);
+%     B = FitImageLS(A,B,1);
+    % El método de Canny detecta bordes bruscos y rellena con bordes
+    % suaves.
+    DeltaA = edge(A,'canny');
+    % Cualquier método da lo mismo en la imagen patrón.
+    DeltaB = edge(B,'roberts');
+    % Se agrandan los límites para usar de máscara con el objetivo de
+    % buscar límites en la imagen resultado que coincidan con los reales.
+    DeltaB = Filter2Mirror(ones(15),abs(DeltaB));
+    DeltaB = DeltaB > 0;
+    % "Pixels borde" que están dentro de la máscara. Conviene que sean
+    % muchos. Esto en realidad ya mide algo.
+    Pab = sum(sum(DeltaA & DeltaB)) / sum(DeltaB(:));
+    % "Pixels borde" que no están dentro de la máscara. Conviene que sean
+    % pocos.
+    Panob = sum(sum(DeltaA & ~DeltaB)) / sum(~DeltaB(:));
+    D = Pab / Panob;
+        
+elseif strcmp(metodo,'EdgeQpond')
+    
+    tolerancia = 11;
+    incidencia = 3;
+    A = mat2gray(A);
+    % El método de Canny detecta bordes bruscos y rellena con bordes
+    % suaves.
+    DeltaA = edge(A,'canny');
+    % Cualquier método da lo mismo en la imagen patrón.
+    DeltaB = edge(B,'roberts');    
+    % Se agrega una tolerancia a la imagen de bordes de A. Se considera
+    % como borde correcto todo lo que entre dentro de dicha tolerancia, con
+    % cierto grado.
+    FiltroGauss = gausswin(2*tolerancia+1)*gausswin(2*tolerancia+1)';
+    deltaB = Filter2Mirror(FiltroGauss,abs(DeltaB));
+    % Se lo normaliza de manera tal que la suma de 1
+    deltaBn = deltaB/sum(deltaB(:));
+    % Se aplica una región de incidencia del borde detectado en la imagen
+    % de evaluación, de esta manera se valora el hecho de encontrar un
+    % borde.
+    FiltroGauss = gausswin(2*incidencia+1)*gausswin(2*incidencia+1)';
+    deltaA = Filter2Mirror(FiltroGauss,abs(DeltaA));
+    % Donde se pasa de uno se lo corrige, no hay mayor seguridad que uno de
+    % tener borde.
+    deltaA(deltaA>1) = 1;
+    % El error ponderado de bordes faltantes se obtiene sumando los bordes
+    % de la imagen de referencia donde no se encontraron bordes en la
+    % imagen evaluada.
+    wMissing = sum(sum(deltaBn.*(1-deltaA)));
+    
+    % Para el cálculo de error ponderado de falsas alarmas se va a integrar
+    % en los bordes encontrados de la imagen evaluada sacando lo que
+    % corresponda a lugares donde no se espere encontrar bordes según deltaB
+    deltaAn = deltaA/sum(deltaA(:));
+    deltaB(deltaB>1) = 1;
+    wFalse = sum(sum(deltaAn .* (1-deltaB)));
+    
+    % Multiplicando los errores se llega a una cantidad que varía entre 0 y
+    % 1 y cuanto menor sea, más coincidencia de bordes existe.
+    D = wMissing * wFalse;
+    
+end

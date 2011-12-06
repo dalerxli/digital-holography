@@ -1,0 +1,89 @@
+% [N resol_f] = soloutil(Carpeta,resol,filas,columnas,N)
+% Con esta función se modifica la carpeta con los archivos de THSP
+% quedándose sólo con un rango de muestras temporales que guardan cierta
+% correlación. En el caso de tener cambios bruscos en la secuencia
+% adquirida, resulta conveniente quedarse con una parte con buena
+% correlación.
+% Carpeta: Carpeta de trabajo
+% resol: resolución de adquisición
+% filas: filas de análisis
+% columnas: columnas de análisis
+% N: cantidad de imágenes adquiridas
+%
+% N: cantidad de imágenes de la secuencia resultante
+% resol_f: resolución final de análisis
+function [N resol_f] = soloutil(Carpeta,resol,filas,columnas,N)
+
+% Inicialización de variables no ingresadas
+if nargin < 5
+    N = 256;
+    cols_prueba = [45 150 202];
+else
+   cols_prueba = floor(linspace(1,columnas(2)-columnas(1)-2,3)) + columnas(1);
+end
+% Para que el nombre de la carpeta pueda ser ingresado con o sin '\'    
+if Carpeta(end) ~= '\'
+    Carpeta = [Carpeta '\'];
+end
+
+% Se toman unas columnas de prueba para obtener la correlación temporal
+thsps = zeros(resol(1),N,length(cols_prueba));
+for k=1:length(cols_prueba)
+    thsps(:,:,k) = obtener_columna(Carpeta, resol(1), N, cols_prueba(k), 'uchar');
+end
+
+% Se muestra el resultado de aplicar momento de inercia a los THSP de
+% prueba.
+IMts = IMt(thsps,15,2);
+plot(IMts
+
+% Se encuentra el rango útil de la secuencia original
+[ini fin] = rango_util(thsps(filas(1):filas(2),:,:))
+
+% Si no se pudo encontrar, se ingresan a mano
+while ini == 0
+    ini = input('Tiempo inicial: ');
+end
+while fin == 0
+    fin = input('Tiempo final: ');
+end
+
+% Se calcula la nueva resolución
+resol_f = [filas(2)-filas(1)+1 columnas(2)-columnas(1)+1];
+
+% Se pregunta si se quiere continuar. Esto implica, modificar los
+% arachivos de la carpeta de trabajo.
+Con = 0;
+while ~(strcmp(Con,'S') || strcmp(Con,'s'))
+    Con = input('Continuar? [S]/N: ','s');
+    if isempty(Con)
+        Con = 'S';
+    elseif (strcmp(Con,'N') || strcmp(Con,'n'))
+        return
+    end
+end
+
+% Se asigna espacio de memoria
+thsp_val = zeros(filas(2)-filas(1)+1,fin-ini+1);
+% Si corresponde, se procede a eliminar parte de información
+if (strcmp(Con,'S') || strcmp(Con,'s'))
+    for k_newarch = columnas(1):(resol(2)+columnas(1)-1)
+        numero = num2str(k_newarch-columnas(1)+1);
+        nombre_arch = [Carpeta 'columna0000'];        
+        nombre_arch(( end - length(numero)+1 ):end) = numero;
+        nombre_arch = [nombre_arch '.dat'];
+        
+        if k_newarch <= columnas(2)
+            thsp = obtener_columna(Carpeta, resol(1), N, k_newarch, 'uchar');
+            fid = fopen(nombre_arch,'w');
+            thsp_val = thsp(filas(1):filas(2),ini:fin);
+            fwrite(fid,thsp_val,'uchar'); % Si no estï¿½ normalizado se usa 'uchar', pero si estï¿½ normalizado se usa 'float32'
+            fclose(fid);
+        else
+            delete(nombre_arch);
+        end
+    end
+end
+
+% Se recalcula la cantidad de imágenes en la secuencia
+N = fin - ini + 1;

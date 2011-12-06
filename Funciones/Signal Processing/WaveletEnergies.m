@@ -1,0 +1,46 @@
+function [Ejs meds vars] = WaveletEnergies(CarpetaMCol,L,Nsim,madreWav,L2,tipo)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Script para obtener la energï¿½a wavelet de las seï¿½ales de las THSP
+%   Se basa en:
+%       Passoni, I., Dai Pra, A., Rabal, H., Trivi, M., Arizaga, R., Dynamic speckle processing unsing wavelets based entropy. Opt. Comm. 246(2005), 219ï¿½228.
+%       L.Zunino, et al., Wavelet entropy of stochastic processes, Physica A 379(2007) 503ï¿½512.
+%       R.A. Braga Jr., G.W. Horgan, A.M. Enes, D. Miron, G.F. Rabelo, J.B. Barreto Filho, Biological feature isolation by wavelets in biospeckle laser images, Comput. Electron. Agric. 58(2007) 132-132
+%
+
+extension = 'dat';
+if nargin < 5
+    resol = [L L];
+else
+    resol = [L L2];
+end
+imagenes = Nsim;
+cant_escalas = wmaxlev(imagenes,madreWav)+1;
+Ejs = zeros([resol cant_escalas]);
+if nargin < 6
+    tipo = 'uchar';
+end
+
+% Imágenes resultantes de medias y varianzas
+meds = zeros(resol);
+vars = zeros(resol);
+
+for k_col = 1:resol(2)
+    thsp = obtener_columna(CarpetaMCol,resol,imagenes,k_col,tipo);
+    
+    % Normalizaciï¿½n
+    v = mean(thsp,2);
+    meds(:,k_col) = v;
+    thsp = thsp - repmat(v,1,imagenes);
+    v = sqrt(sum(thsp.^2,2));
+    Fv = fft(v);
+    Fv(14:end-14+2) = 0;
+    v = ifft(Fv);
+    vars(:,k_col) = v;
+    thsp = thsp ./ repmat(v,1,imagenes);
+    
+    Ej = EnergiaRelativaEscala(thsp,cant_escalas,madreWav);
+    % Se guardan los resultados de las energï¿½as relativas
+    Ejs(:,k_col,:) = Ej;
+    
+end
+a = 0;

@@ -1,0 +1,28 @@
+% Aout = AsociarSegm(A,listA,B)
+%
+% Se asocian los valores de la imagen segmentada A a los valores enteros de
+% la imagen de referencia B, la cantidad de valores que puede tomar un
+% pixel de A se reduce a la propia para B o queda igual si ya es menor.
+% listA contiene la lista de valores que puede tomar un pixel de A.
+
+function Aout = AsociarSegm(A,listA,B)
+
+% Valores de B
+Bval(1) = min(B(:));
+Bval(2) = max(B(:));
+% Cuenta en valores de B
+count = [(Bval(1):Bval(2))' zeros(Bval(2)-Bval(1)+1,1)];
+% Inicializo la salida
+Aout = zeros(size(A));
+% Para cada valor que puede tomar A...
+for k = listA
+    % Para cada valor que puede tomar B...
+    for m = 1:size(count,1)
+        %
+        count(m,2) = sum(A(A == k) == count(m,1));
+%         indcount = find(count(:,1)==B(m));
+%         count(indcount,2) = count(indcount,2) + 1;
+    end
+    [num Bmax] = max(count(:,2);
+    Aout(indA) = count(Bmax,1);
+end

@@ -1,0 +1,14 @@
+function Cambiadas = fig2png(directorio)
+close all
+direc = dir(['*.fig');
+for k = 1:length(direc)
+    open(direc(k,1).name);
+    colormap('hot')
+    h = figure(1);
+    ax = get(h,'CurrentAxes');
+    newname = direc(k,1).name;
+    newname(end-2:end) = 'png';
+    saveas(ax,newname);
+    close all
+end
+Cambiadas = length(direc);

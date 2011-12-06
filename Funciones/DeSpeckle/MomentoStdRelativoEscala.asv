@@ -1,0 +1,29 @@
+function MSj = MomentoStdRelativoEscala(thsp,escalas,filtro,mom)
+% Se ingresa un THSP y calcula el momento estandarizado de la señal en cada
+% escala.
+if nargin==1
+    escalas = fix(log2(size(thsp,2)));  % Cantidad de escalas fijada por el número de muestras.
+end
+[C L] = mi_dwt(thsp,escalas-1,filtro);
+
+%Cálculo de la media
+escalas = length(L);
+Medj = zeros(size(C,1),escalas);
+posicion=1;
+for k_escala = 1:escalas
+    indices = posicion+(0:L(k_escala)-1);
+    Medj(:,k_escala) = sum(C(:,indices),2) / length(indices);
+    posicion = posicion + L(k_escala);
+end
+
+% Calculo de momento y desvio
+Mj = zeros(size(C,1),escalas);
+Dj = zeros(size(C,1),escalas);
+posicion=1;
+for k_escala = 1:escalas
+    indices = posicion+(0:L(k_escala)-1);
+    resta = C_cuad(:,indices) - repmat(Medj(:,k_escala),1,length(indices));
+    Mj(:,k_escala) = resta.^mom;
+    Dj(:,k_escala) = 
+    posicion = posicion + L(k_escala);
+end

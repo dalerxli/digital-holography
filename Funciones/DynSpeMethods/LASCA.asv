@@ -1,0 +1,50 @@
+% Ver M. Pajuelo, G. Baldwin, H. Rabal, N. Cap, R. Arizaga,
+% M. Trivi, Bio-speckle assessment of bruising in fruits, Opt Eng 2003
+%
+% R. A. Braga Jr., B Oliveira Silva, G. Rabelo, R. Marques Costa, A.
+% Machado Enes, N. Cap, H. Rabal, R. Arizaga, M. Trivi, G. Horgand, 
+% Reliability of biospeckle image analysis, Opt. Laser Eng. 45(2007)
+
+function ImLASCA = LASCA(carpeta,L,tQ,N)
+
+resol = [L L];
+bloques = 1;
+imxbloque = N;
+imagenes = bloques * imxbloque;
+ImInt = zeros(resol);
+ImLASCA = zeros(resol);
+
+for k_col = 1:resol(2)
+    thsp_total = obtener_columna(carpeta,resol,imagenes,k_col,'uchar');
+    for k_bloque = 1:imxbloque:imagenes
+        bloque = (k_bloque-1)/imxbloque+1;
+        ImInt(:,k_col) = sum(thsp_total(:,k_bloque+(0:imxbloque-1)),2);       
+    end
+end
+
+% Inicializaciones
+for k_fil = 1:L
+    filas = k_fil : min(k_fil+quad-1,L);
+    for k_col = 1:L
+        columnas = k_col : min(k_col + quad-1,L);
+        v = ImInt(filas,columnas);
+        v = v(:);
+        ImLASCA(k_fil,k_c)
+
+medias = zeros(resol_decimada(1),resol_decimada(2));
+desvios = zeros(resol_decimada(1),resol_decimada(2));
+contrastes = zeros(resol_decimada(1),resol_decimada(2),bloques);
+for k_fil = 1:resol_decimada(1)
+    for k_col = 1:resol_decimada(2)
+        primero_f = (k_fil-1)*tamQuad+1;
+        primero_c = (k_col-1)*tamQuad+1;
+        vector = I(primero_f+(0:6),primero_c+(0:6),k_bloque);
+        vector = vector(:);
+        % LASCA
+        medias(k_fil,k_col) = mean(vector);
+        desvios(k_fil,k_col) = std(vector);
+        contrastes(k_fil,k_col,k_bloque) = desvios(k_fil,k_col) / medias(k_fil,k_col);
+    end
+end
+
+function 

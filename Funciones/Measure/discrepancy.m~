@@ -1,0 +1,116 @@
+% D = discrepancy(A,listA,B,metodo)
+%
+% Funci�n que obtiene una medida objetiva del error en la segmentaci�n de
+% resultado A e imagen de referencia B.
+% El m�todo puede ser:
+%   - pixel1: Valor medio de cantidad de pixels mal clasificados por valor
+%   posible de B;
+%   - pixel2: Valor medio de pixels clasificados como k y no son de clase k
+%   en B;
+%   - pos: Se tiene en cuenta tanto la cantidad de pixels mal clasificados
+%   como la distancia de estos a su clase correspondiente
+%   - divSim: Divergencia sim�trica con las posibilidades de pertencer a
+%   los distintos clusters entre la imagen segmentada y la de referencia.
+%   - entropy: se calcula una entrop�a de los valores de segmentaci�n y se
+%   suma otra de las �reas de las secciones.
+%   - CoefCorr: btiene el valor absoluto del coeficiente de correlación
+%   entre la imagen A y la B.
+%   - PSNR: Se obtiene la peak signal to noise ratio de la imagen A tomando
+%   a B como referencia.
+%   - MAE: error medio.
+%   - EdgeQ: Se mide la calidad de preservación de bordes. Coeficiente de
+%   correlación del Laplaciano de las imágenes.
+
+function D = discrepancy(A,listA,B,metodo)
+
+if listA 
+% Se adapta la matriz A a B
+Abeizado = AsociarSegm(A,listA,B);
+
+if strcmp(metodo,'pixel1')
+    
+    % Se arma la matriz C a partir de A y B
+    C = pixelclass(Abeizado,B);
+    % Cantidad de pixels en B por valor
+    TotalXColumna = sum(C);
+    % Porci�n de pixels mal clasificados por valor de B
+    C = C - diag(diag(C));
+    D = sum(C) ./ TotalXColumna;
+    % Valor promedio de pixels errados por valor de B
+    D = mean(D);
+    
+elseif strcmp(metodo,'pixel2')
+
+    % Se arma la matriz C a partir de A y B
+    C = pixelclass(Abeizado,B);
+    % Cantidad de pixels en B por valor de B
+    TotalXColumna = sum(C);
+    % Cantidad de pixels en B que no son de un valor de B
+    NoSon = length(A(:)) - TotalXColumna;
+    % Porci�n de pixels mal clasificados por valor de A
+    C = C - diag(diag(C));
+    D = sum(C,2) ./ NoSon';
+    % Valor promedio de pixels errados por valor de B
+    D = mean(D);
+
+elseif strcmp(metodo,'pos')    
+    
+    % Se calculan las distancias a la regi�n de los errores
+    d2 = errorDist(Abeizado,B);
+    % Factor de escala
+    p = 1;
+    % Se calcula la figura de m�rito
+    D = 1-sum(1./(1+p*d2))/length(A(:));
+    
+elseif strcmp(metodo,'divSim')
+    
+    valores = min(B(:)):max(B(:));
+    histo1 = hist(Abeizado(:),valores) / length(A(:));
+    histo2 = hist(B(:),valores) / length(A(:));
+    D = sum((histo1-histo2).*log(histo1./histo2));
+    
+elseif strcmp(metodo,'entropy')
+    
+    % C�lculo de entrop�a por segmento
+    [HRj Sj] = EntropiaRegion(A,listA,B);
+    % C�lculo de entrop�a promedio de regiones
+    SI = sum(Sj);
+    Hr = sum(Sj.*HRj)/SI;
+    % Entrop�a de areas de segmentos
+    Hl = -sum(Sj/SI.*log10(Sj/SI));
+    % Medida
+    D = Hr + Hl;
+    
+elseif strcmp(metodo,'CoefCorr')
+    
+    D = abs(corr2(A,B));
+    
+elseif strcmp(metodo,'PSNR')
+    
+    A = mat2gray(A);
+    % Primero se lleva a B a valores que tengan sentido ser comparados con
+    % los valores de A. Se aplica una función lineal a los valores de B
+    % para lograr el mejor ajuste.
+    [C error] = FitImageLS(A,B,1);
+    % Cálculo del PSNR
+    D = 20*log10(1 / sqrt(error));
+    
+elseif strcmp(metodo,'MAE')
+    
+    A = mat2gray(A);
+    C = FitImageLS(A,B,1);
+    D = sum(abs(A(:)-C(:))) / length(A(:));
+    
+elseif strcmp(metodo,'EdgeQ')
+    
+    A = mat2gray(A);
+    B = FitImageLS(A,B,1);
+    B = mat2gray(B);
+    % Aplico el Laplaciano a las imágenes para realzar los bordes
+    Laplacian = [0 -1 0 ; -1 4 -1; 0 -1 0];
+    DeltaA = Filter2Mirror(Laplacian,A);
+    DeltaB = Filter2Mirror(Laplacian,B);
+    % Se mide la relación entre los bordes de las imágenes
+    D = corr2(DeltaA,DeltaB);
+    
+end

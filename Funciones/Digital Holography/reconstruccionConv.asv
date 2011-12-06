@@ -1,0 +1,124 @@
+% Reconstrucción por convolución y usando un RCH (reference conjugated
+% hologram)
+% Ref: Total aberrations compensation in digital holographic microscopy
+% with a reference conjugated hologram. 2006
+
+function [Fase Amplitud] = reconstruccionConv(archivo,z,filtro,Imref)
+
+% Se leen los hologramas
+H = imread(archivo);
+H = double(H);
+Href = imread(Imref);
+Href = double(Href);
+[M N] = size(H);
+
+%%% DATOS DEL DHM
+% Longitud de onda del laser
+lambda = 682.5e-9;
+
+% % Parte del haz de referencia que da en ángulo con la cámara. Se asume que
+% % es el máximo posible
+% dx = 6.45e-6;
+% if nargin < 4
+%     thetamax = lambda / 4 / dx;
+%     kx = 2*pi/lambda*sin(thetamax);
+%     ky = kx;
+% else
+%     kx = ks(1);
+%     ky = ks(2);
+% end
+% Distancia a la imagen
+if nargin < 2
+    z = 3.5e-2;
+else
+    z = z*1e-2; % Esto es para que lo que entre vaya en centímetros
+end
+% Longitud de la cámara
+L = 3.8912e-3;
+% % Tamaño de los pixeles
+% % dx = L / N; % En el plano de la cámara
+% % dy = L / M;
+% dy = dx;
+
+% % En el método convolucional se mantienen los tamaños de pixel, no es como
+% % el método por transformada de Fourier
+% de = dx; % lambda * z / L; % En el plano de la muestra
+% dn = dy; % lambda * z / L;
+
+%%% ALGORITMO
+
+if rem(M,2)
+    vecM = -(M+1)/2:(M-1)/2;
+else
+    vecM = -M/2:M/2-1;
+end
+if rem(N,2)
+    vecN = -(N+1)/2:(N-1)/2;
+else
+    vecN = -N/2:N/2-1;
+end
+
+% FFT del holograma con la modulante
+FH = fftshift(fft2(H));
+FHref = fftshift(fft2(Href));
+
+if nargin < 3
+    % Se dibuja el espectro del holograma
+    imagesc(log10(abs(FH)))
+    
+    % Se busca conservar la imagen real
+    centro(1) = input('Pixel central de la porción conservada: x: ');
+    centro(2) = input('y: ');
+    diametro = input('Diámetro de la porción conservada: ');
+else
+    centro = filtro(1:2);
+    diametro = filtro(3);
+end
+
+% Se arma el círculo alrededor del centro
+[X Y] = meshgrid((1:N)-centro(1),(1:M)-centro(2));
+maskFFT = sqrt(X.^2 + Y.^2);
+maskFFT = maskFFT < diametro;
+
+% Se aplica el filtro a los dos hologramas
+FHfilt = FH .* maskFFT;
+Hfilt = ifft2(fftshift(FHfilt));
+FHfilt = FHref .* maskFFT;
+Hreffilt = ifft2(fftshift(FHfilt));
+
+% RCH
+RCH = Hreffilt ./ abs(Hreffilt);
+
+[X Y] = meshgrid(vecN,vecM);
+% X2 = X.^2;
+% Y2 = Y.^2;
+% Rd = exp(-1i*2*pi/lambda*(kx*X*dx-ky*Y*dy));
+
+%%% Propagación por convolución
+
+% Primer paso
+FIRd = fftshift(fft2(Hfilt.*Rd));
+
+% Kernels sacados de no se dónde
+kernel1 = exp(-1i*pi*lambda*z*(X2+Y2));%/L^2); % v1: 06....pdf
+% kernel2 = exp(1i*pi/lambda/z*(X2*de^2+Y2*dn^2)); % Kernel debido a MO
+kernel2 = exp(1i*pi/lambda/z*(X2+Y2)); % Kernel debido a MO nulo
+
+% Kernels de Schnars y Juptner
+ax = (lambda/(N*dx))^2;
+ay = (lambda/(N*dy))^2;
+bx = N^2*dx^2/2/z/lambda;
+by = N^2*dy^2/2/z/lambda;
+G = exp(1i * 2*pi*z/lambda*sqrt(1-ax*(X+bx).^2-ay*(Y+by).^2));
+
+% Constante (No es necesaria porque pone lo mismo a todos los pixeles)
+A = exp(1i*2*pi*z/lambda) / (1i*lambda*z);
+
+% Segundo paso
+Psi = ifft2(fftshift(FIRd.*G));
+% Psi = A * kernel2 .* fftshift(fft2(Rd.*Hfilt.*kernel1));
+% Psi = A .* kernel2 .* iFIRd;
+
+Fase = angle(Psi);
+
+Amplitud = abs(Psi);

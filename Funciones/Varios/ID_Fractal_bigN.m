@@ -1,0 +1,43 @@
+function m = ID_Fractal_bigN(X,minima,maxima) %0.4 2 va bien
+
+puntos = 50;
+N = size(X,2);
+erres = logspace(log10(minima),log10(maxima/2),puntos+1);
+erres = erres(2:end);
+Cnr = zeros(1,puntos);
+
+h=waitbar(0,'Perate...');
+
+for ki = 1:N-1
+    Distancias = sqrt(sum((X(:,ki+1:end)-repmat(X(:,ki),[1 N-ki])).^2));
+    for kr = 1:puntos
+        r = erres(kr);
+        comp = Distancias < r;
+        Cnr(kr) = Cnr(kr) + sum(comp);        
+    end    
+    h = ki/N;
+end
+close(h)
+Cnr = Cnr/N/(N-1);
+find(Cnr>0,1,'first')
+Cnr(Cnr==0) = min(Cnr(Cnr>0));
+
+repetir = 1;
+while repetir==1
+    Rta = 'N';
+    while Rta ~= 'S'
+        loglog(erres,Cnr)
+        lim1 = input('Indice más chico: ');
+        lim2 = input('Indice más grande: ');
+        loglog(erres(lim1:lim2),Cnr(lim1:lim2))
+        Rta = input('Está bien? S/N: ');
+    end
+    
+    x = log10(erres(lim1:lim2));
+    A = [x' ones(length(x),1)];
+    y = log10(Cnr(lim1:lim2));
+    b = inv(A'*A)*A'*y';
+    m = b(1);
+    
+    repetir = input('Volver a calcular? NO=0, SI=1');
+end

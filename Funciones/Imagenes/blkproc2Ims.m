@@ -1,0 +1,328 @@
+function b = blkproc2Ims(varargin)
+%BLKPROC Distinct block processing for image.
+%   C = BLKPROC2IMS(A, B, [M N],FUN) processes the images A and B by
+%   applying the function FUN to each distinct M-by-N block of A and B,
+%   padding A and B with zeros if necessary.  FUN is a FUNCTION_HANDLE that
+%   accepts an M-by-N matrix, X, and an M0-byN0 matrix, Y and returns a
+%   matrix, vector, or scalar Z:
+%
+%       Z = FUN(X,Y,params)
+%
+%   BLKPROC2IMS does not require that Z be the same size as X or Y.
+%   However, C is the same size as A only if Z is the same size as X.
+%
+%   C = BLKPROC2IMS(A,B,[M N],[MBORDER NBORDER],FUN) defines an overlapping
+%   border around the blocks. BLKPROC2IMS extends the original M-by-N
+%   blocks by MBORDER on the top and bottom, and NBORDER on the left and right,
+%   resulting in blocks of size (M+2*MBORDER)-by-(N+2*NBORDER). BLKPROC2IMS pads
+%   the border with zeros, if necessary, on the edges of A and B. FUN should
+%   operate on the extended block.
+%
+%   B = BLKPROC2IMS(A,B,'indexed',...) processes A and B as indexed images, padding
+%   with zeros if the class of the matrix is logical, uint8 or uint16, or ones if 
+%   the class of A is double.
+%
+%   Class Support
+%   -------------
+%   The input images A and B can be of any class supported by FUN. The
+%   class of C depends on the class of the output from FUN.
+%
+%   Examples
+%   --------
+%   FUN can be a FUNCTION_HANDLE created using @.  This example uses
+%   BLKPROC2IMS to compute the 2-D DCT of each 8-by-8 block of the input image.
+%
+%       I = imread('cameraman.tif');
+%       fun = @dct2;
+%       J = blkproc(I,[8 8],fun);
+%       imagesc(J), colormap(hot)
+%
+%   FUN can also be an anonymous function.  This example uses BLKPROC to set
+%   the pixels in each 32-by-32 block to the standard deviation of the
+%   elements in that block.
+%   
+%       I = imread('liftingbody.png');
+%       fun = @(x) std2(x)*ones(size(x));
+%       I2 = blkproc(I,[32 32],fun);
+%       figure, imshow(I), figure, imshow(I2,[])
+%
+%   See also BESTBLK, COLFILT, FUNCTION_HANDLE, NLFILTER.
+
+% Obsolete syntax: 
+%   B = BLKPROC(A,B,[M N],FUN,P1,P2,...) passes the additional parameters
+%   P1,P2,..., to FUN.
+%
+
+%   I/O spec
+%   ========
+%   A      - can be of any class supported by FUN
+%   B      - can be of any class supported by FUN
+%   M, N   - double, integer, positive, real scalars
+%   FUN    - FUNCTION_HANDLE (could be created with @)
+   
+[a, a0, block, border, fun, params, padval] = parse_inputs(varargin{:});
+
+% Expand A: Add border, pad if size(a) is not divisible by block.
+[ma,na] = size(a);
+mpad = rem(ma,block(1)); if mpad>0, mpad = block(1)-mpad; end
+npad = rem(na,block(2)); if npad>0, npad = block(2)-npad; end
+if (isa(a, 'uint8'))
+    if (padval == 1)
+        aa = repmat(uint8(1), ma+mpad+2*border(1),na+npad+2*border(2));
+    else
+        aa = repmat(uint8(0), ma+mpad+2*border(1),na+npad+2*border(2));
+    end
+elseif isa(a, 'uint16')
+    if (padval == 1)
+        aa = repmat(uint16(1), ma+mpad+2*border(1),na+npad+2*border(2));
+    else
+        aa = repmat(uint16(0), ma+mpad+2*border(1),na+npad+2*border(2));
+    end
+else
+    if (padval == 1)
+        aa = ones(ma+mpad+2*border(1),na+npad+2*border(2));
+    else
+        aa = zeros(ma+mpad+2*border(1),na+npad+2*border(2));
+    end
+end
+aa(border(1)+(1:ma),border(2)+(1:na)) = a;
+
+% Expand B: Add border, pad if size(a0) is not divisible by block.
+% Se toma el caso en que B tiene el mismo tamaño que A
+block0 = block;
+padval0 = padval;
+border0 = border;
+
+[ma0,na0] = size(a0);
+mpad0 = rem(ma0,block0(1)); if mpad0>0, mpad0 = block0(1)-mpad0; end
+npad0 = rem(na0,block0(2)); if npad0>0, npad0 = block0(2)-npad0; end
+if (isa(a0, 'uint8'))
+    if (padval0 == 1)
+        aa0 = repmat(uint8(1), ma0+mpad0+2*border0(1),na0+npad0+2*border0(2));
+    else
+        aa0 = repmat(uint8(0), ma0+mpad0+2*border0(1),na0+npad0+2*border0(2));
+    end
+elseif isa(a0, 'uint16')
+    if (padval0 == 1)
+        aa0 = repmat(uint16(1), ma0+mpad0+2*border0(1),na0+npad0+2*border0(2));
+    else
+        aa0 = repmat(uint16(0), ma0+mpad0+2*border0(1),na0+npad0+2*border0(2));
+    end
+else
+    if (padval0 == 1)
+        aa0 = ones(ma0+mpad0+2*border0(1),na0+npad0+2*border0(2));
+    else
+        aa0 = zeros(ma0+mpad0+2*border0(1),na0+npad0+2*border0(2));
+    end
+end
+aa0(border0(1)+(1:ma0),border0(2)+(1:na0)) = a0;
+
+%
+% Process first block.
+%
+% Se conforma el primer bloque para la primera matriz
+m = block(1) + 2*border(1);
+n = block(2) + 2*border(2);
+mblocks = (ma+mpad)/block(1);
+nblocks = (na+npad)/block(2);
+arows = 1:m; acols = 1:n;
+x = aa(arows, acols);
+% Se conforma el primer bloque para la segunda matriz
+m0 = block0(1) + 2*border0(1);
+n0 = block0(2) + 2*border0(2);
+mblocks0 = (ma0+mpad0)/block0(1);
+nblocks0 = (na0+npad0)/block0(2);
+if (mblocks0 ~= mblocks) && (nblocks0 ~= nblocks)
+    error('La cantidad de bloques debe ser la misma para las dos imágenes.');
+end
+arows0 = 1:m0; acols0 = 1:n0;
+x0 = aa0(arows0, acols0);
+% Se llama a la función. Esta función tendría que poder realizar una
+% validación de las entradas para informar si las mismas son correctas.
+% Los dos primeros parámetros de la función deben ser las matrices
+% provenientes de la extracción de bloques.
+firstBlock = feval(fun,x,x0,params{:});
+
+if (isempty(firstBlock))
+  style = 'e'; % empty
+  b = [];
+elseif (all(size(firstBlock) == size(x)))
+  style = 's'; % same
+  % Preallocate output.
+  if (isa(firstBlock, 'uint8'))
+     b = repmat(uint8(0), ma+mpad, na+npad);
+  elseif (isa(firstBlock, 'uint16'))
+     b = repmat(uint16(0), ma+mpad, na+npad);
+  else
+     b = zeros(ma+mpad, na+npad);
+  end
+  brows = 1:block(1);
+  bcols = 1:block(2);
+  mb = block(1);
+  nb = block(2);
+  xrows = brows + border(1);
+  xcols = bcols + border(2);
+  b(brows, bcols) = firstBlock(xrows, xcols);
+elseif (all(size(firstBlock) == (size(x)-2*border)))
+  style = 'b'; % border
+  % Preallocate output.
+  if (isa(firstBlock, 'uint8'))
+      b = repmat(uint8(0), ma+mpad, na+npad);
+  elseif (isa(firstBlock, 'uint16'))
+      b = repmat(uint16(0), ma+mpad, na+npad);
+  else
+      b = zeros(ma+mpad, na+npad);
+  end
+  brows = 1:block(1);
+  bcols = 1:block(2);
+  b(brows, bcols) = firstBlock;
+  mb = block(1);
+  nb = block(2);
+else
+  style = 'd'; % different
+  [P,Q] = size(firstBlock);
+  brows = 1:P;
+  bcols = 1:Q;
+  mb = P;
+  nb = Q;
+  if (isa(firstBlock, 'uint8'))
+      b = repmat(uint8(0), mblocks*P, nblocks*Q);
+  elseif (isa(firstBlock, 'uint16'))
+      b = repmat(uint16(0), mblocks*P, nblocks*Q);
+  else
+      b = zeros(mblocks*P, nblocks*Q);
+  end
+  b(brows, bcols) = firstBlock;
+end
+
+% Ahora el resto de los bloques
+[rr,cc] = meshgrid(0:(mblocks-1), 0:(nblocks-1));
+rr = rr(:);
+cc = cc(:);
+mma = block(1);
+nna = block(2);
+mma0 = block0(1);
+nna0 = block0(2);
+for k = 2:length(rr)
+  x = aa(rr(k)*mma+arows,cc(k)*nna+acols);
+  x0 = aa0(rr(k)*mma0+arows0,cc(k)*nna0+acols0);
+  c = feval(fun,x,x0,params{:});
+  if (style == 's')
+    b(rr(k)*mb+brows,cc(k)*nb+bcols) = c(xrows,xcols);
+  elseif (style == 'b')
+    b(rr(k)*mb+brows,cc(k)*nb+bcols) = c;
+  elseif (style == 'd')
+    b(rr(k)*mb+brows,cc(k)*nb+bcols) = c;
+  end
+end
+
+if ((style == 's') || (style == 'b'))
+  b = b(1:ma,1:na);
+end
+
+%%%
+%%% Function parse_inputs
+%%%
+function [a, a0, block, border, fun, params, padval] = parse_inputs(varargin)
+
+iptchecknargin(2,Inf,nargin,mfilename);
+
+switch nargin
+case 4
+    % BLKPROC(A, B, [m n], 'fun')
+    a = varargin{1};
+    a0 = varargin{2};
+    block = varargin{3};
+    border = [0 0];
+    fun = fcnchk(varargin{4});
+    params = cell(0,0);
+    padval = 0;
+    
+case 5
+    if (strcmp(varargin{3}, 'indexed'))
+        % BLKPROC(X, Y, 'indexed', [m n], 'fun')
+        a = varargin{1};
+        a0 = varargin{2}
+        block = varargin{4};
+        border = [0 0];
+        fun = fcnchk(varargin{5});
+        params = cell(0,0);
+        padval = 1;
+        
+    else
+        params = varargin(5);
+        [fun,msg] = fcnchk(varargin{4}, length(params));
+        if isempty(msg)
+            % BLKPROC(A, B, [m n], 'fun', P1)
+            a = varargin{1};
+            a0 = varargin{2};
+            block = varargin{3};
+            border = [0 0];
+            padval = 0;
+            
+        else
+            % BLKPROC(A, B, [m n], [mb nb], 'fun')
+            a = varargin{1};
+            a0 = varargin{2};
+            block = varargin{3};
+            border = varargin{4};
+            fun = fcnchk(varargin{5});
+            params = cell(0,0);
+            padval = 0;
+        end
+    end
+    
+otherwise
+    if (strcmp(varargin{3}, 'indexed'))
+        params = varargin(6:end);
+        [fun,msg] = fcnchk(varargin{5},length(params));
+        if isempty(msg)
+            % BLKPROC(A, B, 'indexed', [m n], 'fun', P1, ...)
+            a = varargin{1};
+            a0 = varargin{2};
+            block = varargin{4};
+            border = [0 0];
+            padval = 1;
+            
+        else
+            % BLKPROC(A, B, 'indexed', [m n], [mb nb], 'fun', P1, ...)
+            a = varargin{1};
+            a0 = varargin{2};
+            block = varargin{4};
+            border = varargin{5};
+            params = varargin(7:end);
+            fun = fcnchk(varargin{6},length(params));
+            padval = 1;
+            
+        end
+        
+    else
+        params = varargin(5:end);
+        [fun,msg] = fcnchk(varargin{4},length(params));
+        if isempty(msg)
+            % BLKPROC(A, B, [m n], 'fun', P1, ...)
+            a = varargin{1};
+            a0 = varargin{2};
+            block = varargin{3};
+            border = [0 0];
+            padval = 0;
+            
+        else
+            % BLKPROC(A, B, [m n], [mb nb], 'fun', P1, ...)
+            a = varargin{1};
+            a0 = varargin{2};
+            block = varargin{3};
+            border = varargin{4};
+            params = varargin(6:end);
+            fun = fcnchk(varargin{5}, length(params));
+            padval = 0;
+            
+        end
+        
+    end
+end
+    
+if (islogical(a) || isa(a,'uint8') || isa(a, 'uint16'))
+    padval = 0;
+end
+

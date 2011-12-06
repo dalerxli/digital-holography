@@ -1,0 +1,26 @@
+% [HRj Sj] = EntropiaRegion(A,listA,B);
+%
+%   Se calcula la entrop�a por segmento de A teniendo en cuenta el
+%   histograma de los valores que toman los pixels de A en las regiones
+%   ideales de B.
+%   Se obtiene un valor para cada regi�n de B.
+
+function [HRj Sj] = EntropiaRegion(A,listA,B);
+
+% Valores de B
+[Bval cantidad] = listar(B(:));
+Bval = sort(Bval);
+N = length(Bval);
+Sj = zeros(1,N);
+Lj = zeros(length(listA),N);
+
+% Para cada regi�n
+for j = 1:N
+    indices = find(B == Bval(j));
+    Sj(j) = length(indices);
+    vector = A(indices);
+    Lj(:,j) = hist(vector,listA);
+end
+
+prj = Lj./repmat(Sj,length(listA),1);
+Hrj = -sum(prj.*log10(prj));

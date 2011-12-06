@@ -1,0 +1,25 @@
+% [Q CC LD CD] = LittleWang(A,B)
+%
+% Esta función calcula de dos imágenes el coeficiente de Wang de:
+% A Universal Image Quality Index - 2002
+% Como el coeficiente mide el factor de correlación, la distorsión de
+% luminancia y la de contraste, para poder discriminar se tienen estos
+% valores a la salida.
+
+function [Q CC LD CD] = LittleWang(A,B)
+
+x = A(:);
+y = B(:);
+
+x_m = mean(x);
+y_m = mean(y);
+C = cov(x,y);
+x_s = C(1,1);
+y_s = C(2,2);
+s_xy = C(1,2);
+
+CC = s_xy/sqrt(x_s*y_s);
+LD = 2*x_m*y_m/(x_m^2+y_m^2);
+CD = 2*x_s*y_s/(x_s^2+y_s^2);
+
+Q = CC * LD * CD;
