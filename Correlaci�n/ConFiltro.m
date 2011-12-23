@@ -1,7 +1,7 @@
 clear all
 
 % Abro la imagen
-I1 = imread('D:\Hologramas\20111121\HologramFilt20.tif');
+I1 = imread('D:\Hologramas\20111121\Hologram100SinFilt.tif');
 % Saco contraste
 cont = @(x)std(x(:))/mean(x(:));
 C1 = blkproc(double(I1),[8 8],[4 4],cont);
@@ -24,9 +24,9 @@ C1 = double(C1(:));
 ft = fittype( 'a + b*exp(-((x-x0)^2*c+2*d*(x-x0)*(y-y0)+e*(y-y0)^2))', 'indep', {'x', 'y'}, 'depend', 'z' );
 opts = fitoptions( ft );
 opts.Display = 'Off';
-opts.Lower = [0 0 0 -1 0 -100 -100];
-opts.StartPoint = [0.143274016636378 0.0757267182045638 0.0002 0 1e-005 0.205602836590222 0.477815313272847];
-opts.Upper = [10 10 1 1 1 100 100];
+opts.Lower = [0 0 0 -1 0 -200 -200];
+opts.StartPoint = [0.04 .6 0.002 -0.002 .002 -20 -20];
+opts.Upper = [10 10 1 1 1 200 200];
 opts.Weights = zeros(1,0);
 [fitresult, gof] = fit( [X, Y], C1, ft, opts );
 
@@ -55,6 +55,8 @@ D = D(In,In);
 
 deltax = 6.45e-6;
 sigmaC = sqrt(D(1))*deltax;
+% Longitud de coherencia
+Lc = 2*sigmaC*sqrt(2*log(2));
 
 % Tengo que encontrar la distancia en z que representa el sigma de
 % correlación temporal. Para esto, saco el módulo del vector de frecuencias
@@ -71,7 +73,7 @@ fils = M-ini+1;
 pmax(1) = ini + floor(Ind/N);
 pmax(2) = rem(Ind,N);
 pmedio = floor([M N]/2)+1;
-kxy = (pmax-pmedio)/N/deltax;
+kxy = 2*pi*(pmax-pmedio)/N/deltax;
 
 % k = k0*(cos(theta)*cos(phi)*xv+cos(theta)*sin(phi)*yv+sin(theta)*zv)
 k0 = 2*pi/682.5e-9;
@@ -81,4 +83,6 @@ theta = acos(kxy(1)/k0/cos(phi));
 % La distancia que debe recorrer el frente de onda para llegar desde el
 % centro de interferencia al punto (x,y)
 
-kxy*sigmaC*V/norm(kxy)
+d = kxy*sigmaC*V/norm(kxy)
+tc = d/3e8
+DeltaLambda = (682.5e-9)^2/d

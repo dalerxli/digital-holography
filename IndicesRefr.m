@@ -1,6 +1,10 @@
+% Esta función obtiene un vector con el índice de refracción necesario en
+% el material de núcleo para ciertos determinados valores de espesor del
+% núcleo.
+
 function nNu = IndicesRefr(PhiNu,PhiBulk,h,nBulk,dBulk)
 
-longOnda = 680e-9;
+longOnda = 682.5e-9;
 k0 = 2*pi/longOnda;
 
 [rBulk tBulk] = MultiplesReflexiones(nBulk,dBulk);
