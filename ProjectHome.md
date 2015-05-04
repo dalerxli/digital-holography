@@ -1,0 +1,1 @@
+Estas funciones se utilizan para la reconstrucción digital con hologramas, para la realización de reflectometría, caracterización de arreglos ópticos de holografía y otros.
